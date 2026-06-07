@@ -1,0 +1,19 @@
+Sort files before folders in Dolphin.
+
+Inverts the two return values in KFileItemModel::lessThan()'s
+"folders first" comparison block so that, when the standard
+"Folders First" sort option is enabled, files are listed above folders.
+
+--- a/src/kitemviews/kfileitemmodel.cpp
++++ b/src/kitemviews/kfileitemmodel.cpp
+@@ -2097,9 +2097,9 @@
+         const bool isDirA = a->item.isDir();
+         const bool isDirB = b->item.isDir();
+         if (isDirA && !isDirB) {
+-            return true;
+-        } else if (!isDirA && isDirB) {
+             return false;
++        } else if (!isDirA && isDirB) {
++            return true;
+         }
+     }
