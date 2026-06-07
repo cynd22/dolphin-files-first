@@ -56,7 +56,9 @@ git pull
 makepkg -si
 ```
 
-(If a new Dolphin release changes the relevant code, update `pkgver` in the `PKGBUILD`; the patch itself rarely needs changes.)
+…or grab the latest prebuilt package from [Releases](https://github.com/cynd22/dolphin-files-first/releases) and `sudo pacman -U` it.
+
+**This repo keeps itself current automatically.** A weekly GitHub Action checks for new Dolphin releases, rebuilds the patched package, and publishes a new Release — so `git pull` / the latest Release is always up to date. If a future Dolphin moves the code the patch targets, the build fails safely and an issue is filed instead of shipping something broken. (The `pkgver` bump is automatic; the patch itself rarely needs touching.)
 
 ## Going back to normal Dolphin
 

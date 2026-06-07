@@ -1,0 +1,85 @@
+name: Update Dolphin
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'        # every Monday 06:00 UTC
+  workflow_dispatch:           # manual "Run workflow" button
+    inputs:
+      test_build:
+        description: 'Build the CURRENT version to test the pipeline (no commit/release)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write              # push the bump + create releases
+  issues: write                # file an issue if the patch breaks
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine versions
+        id: check
+        run: |
+          set -euo pipefail
+          current=$(sed -n 's/^pkgver=//p' PKGBUILD | head -1)
+          latest=$(curl -fsSL https://archlinux.org/packages/extra/x86_64/dolphin/json/ | jq -r .pkgver)
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest"   >> "$GITHUB_OUTPUT"
+          if [ "${{ inputs.test_build }}" = "true" ]; then
+            echo "build_ver=$current" >> "$GITHUB_OUTPUT"
+            echo "publish=false"      >> "$GITHUB_OUTPUT"
+            echo "::notice::Test build of current version $current"
+          elif [ "$current" != "$latest" ]; then
+            echo "build_ver=$latest" >> "$GITHUB_OUTPUT"
+            echo "publish=true"      >> "$GITHUB_OUTPUT"
+            echo "::notice::New Dolphin $latest (have $current)"
+          else
+            echo "build_ver="    >> "$GITHUB_OUTPUT"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Already up to date ($current)"
+          fi
+
+      - name: Build patched package (Arch container)
+        id: build
+        if: success() && steps.check.outputs.build_ver != ''
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD":/work archlinux:latest \
+            bash /work/ci/build.sh "${{ steps.check.outputs.build_ver }}"
+          pkg=$(ls dolphin-files-first-*.pkg.tar.zst)
+          echo "pkg=$pkg" >> "$GITHUB_OUTPUT"
+
+      - name: Commit version bump
+        if: success() && steps.check.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD
+          git commit -m "Update Dolphin to ${{ steps.check.outputs.latest }}"
+          git push
+
+      - name: Publish release
+        if: success() && steps.check.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release create "v${{ steps.check.outputs.latest }}-1" \
+            "${{ steps.build.outputs.pkg }}" \
+            --target master \
+            --title "Dolphin Files First ${{ steps.check.outputs.latest }}-1" \
+            --notes "Auto-built from Dolphin ${{ steps.check.outputs.latest }}. Install: \`sudo pacman -U ${{ steps.build.outputs.pkg }}\` — or build from source (see README). Keep Dolphin's 'Folders First' sort toggle ON; the patch inverts it to mean files-first."
+
+      - name: Flag patch breakage
+        if: failure() && steps.check.outputs.build_ver != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "Auto-build for Dolphin ${{ steps.check.outputs.build_ver }} failed" \
+            --body "The build for Dolphin \`${{ steps.check.outputs.build_ver }}\` failed — most likely \`files-first.patch\` no longer applies because the upstream code in \`src/kitemviews/kfileitemmodel.cpp\` moved. Refresh the patch and re-run. (Auto-filed by the update workflow.)" \
+            || true
