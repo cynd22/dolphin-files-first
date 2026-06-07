@@ -12,6 +12,9 @@ pkgdesc='KDE File Manager, patched to sort files before folders'
 arch=(x86_64)
 url='https://apps.kde.org/dolphin/'
 license=(LGPL-2.0-or-later)
+# Don't emit a separate -debug package (keeps output to a single file and
+# matches a typical desktop makepkg.conf).
+options=(!debug)
 depends=(baloo
          baloo-widgets
          glibc

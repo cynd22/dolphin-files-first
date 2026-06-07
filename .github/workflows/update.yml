@@ -49,7 +49,8 @@ jobs:
           set -euo pipefail
           docker run --rm -v "$PWD":/work archlinux:latest \
             bash /work/ci/build.sh "${{ steps.check.outputs.build_ver }}"
-          pkg=$(ls dolphin-files-first-*.pkg.tar.zst)
+          pkg=$(ls dolphin-files-first-*.pkg.tar.zst | grep -v -- '-debug' | head -1)
+          test -n "$pkg" || { echo "no package produced"; exit 1; }
           echo "pkg=$pkg" >> "$GITHUB_OUTPUT"
 
       - name: Commit version bump
