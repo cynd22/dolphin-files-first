@@ -1,3 +1,5 @@
+🌭🌭🌭🌭🌭🌭🌭🌭🌭🌭🌭🌭🌭🌭🌭🌭🌭🌭🌭🌭
+
 # Dolphin — Files First
 
 A version of KDE's **Dolphin** file manager patched so that **files are listed _above_ folders**, instead of the usual folders-on-top.
